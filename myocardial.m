@@ -1,5 +1,18 @@
 %% Infarct Tissue Heterogeneity
 function myocardial()
+
+%% Check for license
+hasIPT = license('test', 'image_toolbox');
+if ~hasIPT
+    message = sprintf('Sorry, but you do not seem to have the Image Processing Toolbox.\nDo you want to try to continue anyway?');
+    reply = questdlg(message, 'Toolbox missing', 'Yes', 'No', 'Yes');
+    if strcmpi(reply, 'No')
+        % Exit
+        return;
+    end
+end
+
+
 %% Callback: Browse
     function browseButton_Callback(hObject, eventdata, handles)
         folder_name = uigetdir();
@@ -37,6 +50,7 @@ function myocardial()
         [selected_image,selected_image_info,selected_image_index] = getSelectedImage();
         displayImage(selected_image);
         displayImageInfo(selected_image_info);
+        displayImageMarks(selected_image_index);
     end
 
 %% Callback: Mark Epicardial
@@ -45,7 +59,8 @@ function myocardial()
         if ~isempty(currentEpicardialmark)
             poly = impoly(imageAxes,[currentEpicardialmark(:,1),currentEpicardialmark(:,2)]);
         else
-            poly = impoly(imageAxes,Epicardialpolyposition);
+%             poly = impoly(imageAxes,Epicardialpolyposition);
+            poly = impoly(imageAxes);
         end
         Epicardialpolyposition = wait(poly);
         delete(poly);
@@ -64,7 +79,7 @@ function myocardial()
 
 %% Callback: Mark Endocardial
     function markEndocardialButton_Callback(hObject, eventdata, handles)
-        currentEndocardialmark = clearEpicardial();
+        currentEndocardialmark = clearEndocardial();
         if ~isempty(currentEndocardialmark)
             poly = impoly(imageAxes,[currentEndocardialmark(:,1),currentEndocardialmark(:,2)]);
         else
@@ -133,18 +148,8 @@ function myocardial()
         
         assignin('base', 'Hyperenhanced', Hyperenhancedpolyposition);
         
-        displayHistogram([xi,yi],getAxesImage());
+        displayHistogram([xi,yi],getAxesImage(),'Hyperenhanced');
     end
-
-%% 
-    function displayHistogram(points, I)
-        maskedImage=getMaskedImage(points,I);
-        maskedVector = maskedImage(:);
-        maskedVector = maskedVector(maskedVector>0);
-        axes(histogramAxes);
-        imhist(maskedVector); 
-    end
-
 
 %% get a masked Image of region of interst marked by user
     function maskedImage = getMaskedImage(points, I)
@@ -158,32 +163,46 @@ function myocardial()
     function [maxSI, meanSI, stdSI] = calculateStat(points, I)
         maskedImage = getMaskedImage(points, I);
         maskedVector = maskedImage(:);
+        % max should be calculated before removing zero elements
         maxSI = max(maskedVector);
+        meanSI = mean(maskedVector);
+        stdSI = std(double(maskedVector));
         
         maskedVector = maskedVector(maskedVector>0); %removeing zeros from vector for stats
         assignin('base', 'maskedVector', maskedVector);
         
-        maxSI = max(maskedVector);
-        meanSI = mean(maskedVector);
-        stdSI = std(double(maskedVector));
+        if ~isempty(maskedVector)
+            maxSI = max(maskedVector);
+            meanSI = mean(maskedVector);
+            stdSI = std(double(maskedVector));
+        end
     end
 
-    function thresholdButton_Callback(hObject, eventdata, handles)
-%         mask1 = poly2mask(Epicardialpolyposition(:,1), Epicardialpolyposition(:,2), r, c);
-%         mask2 = poly2mask(Endocardialpolyposition(:,1), Endocardialpolyposition(:,2), r, c);
-%         mask = mask1 - mask2;
-%         maskedRing = I.*cast(mask, class(I));
-%         assignin('base', 'I', maskedRing);
-%         V = maskedRing(:);
-%         V = V(V>0); %removeing zeros from vector for stats
-%         assignin('base', 'V', V);
-%         maxSIRing = max(V);     
-%         assignin('base', 'maxRemote', maxRemote);
-
+    function computerGrayzoneButton_Callback(hObject, eventdata, handles)
+        %             figure, imshow(maskedRing);
+        %             assignin('base', 'I', maskedRing);
+        %             V = maskedRing(:);
+        %             V = V(V>0); %removeing zeros from vector for stats
+        %             assignin('base', 'V', V);
+        %             maxSIRing = max(V);
+        %             assignin('base', 'maxRemote', maxRemote);
         selected_image_index =  getSelectedImageIndex();
         I = getAxesImage();
-%         figure, imshow(I);
+        [r, c] = size(I);
+        %         figure, imshow(I);
         
+        if ~isempty(Epicardial)
+            Epicardialslice = Epicardial(Epicardial(:,3) == selected_image_index,:);
+            xi = Epicardialslice(:,1); yi = Epicardialslice(:,2);
+            maskedEpicardial =  getMaskedImage([xi,yi], getAxesImage());
+        end
+        
+        if ~isempty(Endocardial)
+            Endocardialslice = Endocardial(Endocardial(:,3) == selected_image_index,:);
+            xi = Endocardialslice(:,1); yi = Endocardialslice(:,2);
+            maskedEndocardial =  getMaskedImage([xi,yi], getAxesImage());
+        end
+
         if ~isempty(Remote)
             Remoteslice = Remote(Remote(:,3) == selected_image_index,:);
             xi = Remoteslice(:,1); yi = Remoteslice(:,2);
@@ -199,22 +218,30 @@ function myocardial()
         if ~isempty(Hyperenhanced)
             Hyperenhancedslice = Hyperenhanced(Hyperenhanced(:,3) == selected_image_index,:);
             xi = Hyperenhancedslice(:,1); yi = Hyperenhancedslice(:,2);
-            maskedHyperenhanced = getMaskedImage([xi,yi],getAxesImage());
+%             maskedHyperenhanced = getMaskedImage([xi,yi],getAxesImage());
             [maxHyperenhanced,meanHyperenhanced,stdHyperenhanced] = calculateStat([xi,yi],I);
             set(findobj('Tag', 'maxHyperenhancedEdit'),'String',maxHyperenhanced);
             set(findobj('Tag', 'meanHyperenhancedEdit'),'String',meanHyperenhanced);
             set(findobj('Tag', 'stdHyperenhancedEdit'),'String',stdHyperenhanced);
         end
         
+        maskedRing = maskedEpicardial - maskedEndocardial;
+%         figure, imshow(maskedRing);
+
         grayZoneIm(:,:,1) = im2double(I);
         grayZoneIm(:,:,2) = im2double(I);
         grayZoneIm(:,:,3) = im2double(I);
-
-        [r, c] = size(I);
+        
         for ii = 1:r
             for jj=1:c
-                if(maskedHyperenhanced(ii, jj) > maxRemote ...
-                        && maskedHyperenhanced(ii, jj) < maxHyperenhanced/2.0)
+                if(maskedRing(ii, jj) > maxHyperenhanced/2.0)
+                    grayZoneIm(ii, jj, 1) = 1.0;
+                    grayZoneIm(ii, jj, 2) = 0;
+                    grayZoneIm(ii, jj, 3) = 0;
+                end
+                
+                if(maskedRing(ii, jj) > maxRemote ...
+                        && maskedRing(ii, jj) < maxHyperenhanced/2.0)
                     grayZoneIm(ii, jj, 1) = 1.0;
                     grayZoneIm(ii, jj, 2) = 0.8;
                     grayZoneIm(ii, jj, 3) = 0;
@@ -252,13 +279,18 @@ function myocardial()
     function saveSliceMarksButton_Callback(hObject, eventdata, handles)
         selected_image_index = getSelectedImageIndex();
         [filename,pathname] = uiputfile('*.mat');
+        
+        if(filename == 0)
+           return 
+        end
+        
         filepath = strcat(pathname,filesep,filename);
         slice.Epicardial = [];
         slice.Endocardial = [];
         slice.Remote = [];
         slice.Hyperenhanced = [];
         if ~isempty(Epicardial)
-            Epicardialslice = Epicardial(Epicardial(:,3) == selected_image_index,:)
+            Epicardialslice = Epicardial(Epicardial(:,3) == selected_image_index,:);
             slice.Epicardial = Epicardialslice;
         end
         
@@ -282,50 +314,53 @@ function myocardial()
 %% Callback: Load Marks from .mat file for current slice
     function loadSliceMarksButton_Callback(hObject, eventdata, handles)
         [filename,pathname] = uigetfile('*.mat','Select Prostate Zone Marks for Current Slice');
-        if(~isempty(filename))
-            filepath = strcat(pathname,filesep,filename);
-            clearEpicardial();
-            clearEndocardial();
-            clearRemote();
-            clearHyperenhanced();
-            data = load(filepath);
-            Epicardial = [Epicardial; data.slice.Epicardial];
-            Endocardial = [Endocardial; data.slice.Endocardial];
-            Remote = [Remote; data.slice.Remote];
-            Hyperenhanced = [Hyperenhanced; data.slice.Hyperenhanced];
-            % Now Display Marks for current slice
-            selected_image_index = getSelectedImageIndex();
-            displayImageMarks(selected_image_index);
+        if(filename == 0)
+            return
         end
+        filepath = strcat(pathname,filesep,filename);
+        clearEpicardial();
+        clearEndocardial();
+        clearRemote();
+        clearHyperenhanced();
+        data = load(filepath);
+        Epicardial = [Epicardial; data.slice.Epicardial];
+        Endocardial = [Endocardial; data.slice.Endocardial];
+        Remote = [Remote; data.slice.Remote];
+        Hyperenhanced = [Hyperenhanced; data.slice.Hyperenhanced];
+        % Now Display Marks for current slice
+        selected_image_index = getSelectedImageIndex();
+        displayImageMarks(selected_image_index)
     end
 
 %% Callback: Save Marks as .mat file for all slices
     function saveAllMarksButton_Callback(hObject, eventdata, handles)
         [filename,pathname] = uiputfile('*.mat');
-        if(~isempty(filename))
-            filepath = strcat(pathname,filesep,filename);
-            slices.Epicardial = Epicardial;
-            slices.Endocardial = Endocardial;
-            slices.Remote = Remote;
-            slices.Hyperenhanced = Hyperenhanced;
-            save(filepath,'slices');
+        if(filename == 0)
+            return
         end
+        filepath = strcat(pathname,filesep,filename);
+        slices.Epicardial = Epicardial;
+        slices.Endocardial = Endocardial;
+        slices.Remote = Remote;
+        slices.Hyperenhanced = Hyperenhanced;
+        save(filepath,'slices');
     end
 
 %% Callback: Load Marks from .mat file for all slices
     function loadAllMarksButton_Callback(hObject, eventdata, handles)
         [filename,pathname] = uigetfile('*.mat','Select Prostate Zone Marks for Current Slice');
-        if(~isempty(filename))
-            filepath = strcat(pathname,filesep,filename);
-            data = load(filepath);
-            Epicardial = data.slices.Epicardial;
-            Endocardial = data.slices.Endocardial;
-            Remote = data.slices.Remote;
-            Hyperenhanced = data.slices.Hyperenhanced;
-            % Now Display Marks for current slice
-            selected_image_index = getSelectedImageIndex();
-            displayImageMarks(selected_image_index);
+        if(filename == 0)
+            return
         end
+        filepath = strcat(pathname,filesep,filename);
+        data = load(filepath);
+        Epicardial = data.slices.Epicardial;
+        Endocardial = data.slices.Endocardial;
+        Remote = data.slices.Remote;
+        Hyperenhanced = data.slices.Hyperenhanced;
+        % Now Display Marks for current slice
+        selected_image_index = getSelectedImageIndex();
+        displayImageMarks(selected_image_index);
     end
 
 %% Clear Epicardial
@@ -423,6 +458,19 @@ function myocardial()
         end
     end
 
+%%  Display Histogram of selected mask
+    function displayHistogram(points, I,axesLegend)
+        cla(histogramAxes,'reset');
+%         reset(histogramAxes);
+        axes(histogramAxes);
+        maskedImage=getMaskedImage(points,I);
+        maskedVector = maskedImage(:);
+        maskedVector = maskedVector(maskedVector>0);
+        if ~isempty(maskedVector)
+            imhist(maskedVector);
+            legend(histogramAxes,axesLegend,'Location','northeast');
+        end
+    end
 
 %% Display Image
     function displayImage(selected_image)
@@ -472,12 +520,13 @@ function myocardial()
             hold on;
             Remoteplot = plot(imageAxes,xi,yi,Remotecolor,'Linewidth', lineWidth);
         end
-        
+
         if ~isempty(Hyperenhanced)
             Hyperenhancedslice = Hyperenhanced(Hyperenhanced(:,3) == selected_image_index,:);
             xi = Hyperenhancedslice(:,1); yi = Hyperenhancedslice(:,2);
             hold on;
             Hyperenhancedplot = plot(imageAxes,xi,yi,Hyperenhancedcolor,'Linewidth', lineWidth);
+            displayHistogram([xi,yi],getAxesImage(),'Hyperenhanced');
         end
         
     end
@@ -494,7 +543,7 @@ function myocardial()
         end
     end
 
-%% All Globla Variables and GUI Construction
+%% All Global Variables and GUI Construction
 
 clear all;
 close all;
@@ -512,7 +561,7 @@ Hyperenhanced = [];
 
 maskedHyperenhanced=[];
 
-maxRemote=0; meanRemote=0; stdRemote=0;
+maxRemote=0;
 maxHyperenhanced=0;
 
 Epicardialplot = [];
@@ -566,21 +615,25 @@ loadDicomImagesButton = uicontrol('Style','pushbutton','Parent',dirBG,'Units','n
 
 %% Files Controllers
 wFilesBG = 18;
-hFilesBG = 7;
+hFilesBG = 11;
 
 filesBG = uibuttongroup('Units','Normalized','Title','Files',...
-    'BackgroundColor',[1 0.5 0],'Position',[1/wMax 92/hMax wFilesBG/wMax hFilesBG/hMax]);
+    'BackgroundColor',[1 0.5 0],'Position',[1/wMax 88/hMax wFilesBG/wMax hFilesBG/hMax]);
 
 contrastImagesButton = uicontrol('Style','pushbutton','Parent',filesBG,'Units','normalized',...
     'String','Contrast Images',...
-    'Position',[1/wFilesBG 1/hFilesBG 16/wFilesBG 5/hFilesBG],'Callback',@contrastImagesButton_Callback);
+    'Position',[1/wFilesBG 6/hFilesBG 16/wFilesBG 4/hFilesBG],'Callback',@contrastImagesButton_Callback);
+
+computerGrayzoneButton = uicontrol('Style','pushbutton','Parent',filesBG,'Units','normalized',...
+    'String','Compute Grayzone',...
+    'Position',[1/wFilesBG 1/hFilesBG 16/wFilesBG 4/hFilesBG],'Callback',@computerGrayzoneButton_Callback);
 
 %% Image ListBox
 wListBG = 18;
 hListBG = 20;
 
 imagelistBG = uibuttongroup('Units','Normalized','Title','Image List',...
-    'Position',[1/wMax 71/hMax wFilesBG/wMax hListBG/hMax]);
+    'Position',[1/wMax 67/hMax wFilesBG/wMax hListBG/hMax]);
 
 imageListBox = uicontrol('Style','listbox','Parent',imagelistBG,'Units','normalized',...
     'BackgroundColor','white','Tag','imageListBox',...
@@ -588,74 +641,74 @@ imageListBox = uicontrol('Style','listbox','Parent',imagelistBG,'Units','normali
 
 %% Original Patient Parameters Handles
 wOrgBG = 18;
-hOrgBG = 35;
+hOrgBG = 32;
 
 orgParameterBG = uibuttongroup('Units','Normalized','Title','Information',...
-    'Position',[1/wMax 35/hMax wOrgBG/wMax hOrgBG/hMax]);
+    'Position',[1/wMax 34/hMax wOrgBG/wMax hOrgBG/hMax]);
 
 familyNameLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
-    'String','Family Name',...
-    'Position',[1/wOrgBG 31/hOrgBG 7/wOrgBG 3/hOrgBG]);
+    'String','Family Name','FontSize',9,...
+    'Position',[1/wOrgBG 29/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 familyNameEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
     'Tag','familyNameEdit','Enable','off',...
-    'Position',[9/wOrgBG 31/hOrgBG 8/wOrgBG 3/hOrgBG]);
+    'Position',[9/wOrgBG 29/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 givenNameLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
-    'String','Given Name',...
-    'Position',[1/wOrgBG 27/hOrgBG 7/wOrgBG 3/hOrgBG]);
+    'String','Given Name','FontSize',9,...
+    'Position',[1/wOrgBG 25/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 givenNameEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
     'Tag','givenNameEdit','Enable','off',...
-    'Position',[9/wOrgBG 27/hOrgBG 8/wOrgBG 3/hOrgBG]);
+    'Position',[9/wOrgBG 25/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 patientIDLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
     'String','ID',...
-    'Position',[1/wOrgBG 23/hOrgBG 7/wOrgBG 3/hOrgBG]);
+    'Position',[1/wOrgBG 21/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 patientIDEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
-    'Tag','patientIDEdit','Enable','off',...
-    'Position',[9/wOrgBG 23/hOrgBG 8/wOrgBG 3/hOrgBG]);
+    'Tag','patientIDEdit','Enable','off','FontSize',7,...
+    'Position',[9/wOrgBG 21/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 patientBirthDateLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
     'String','Birthdate',...
-    'Position',[1/wOrgBG 19/hOrgBG 7/wOrgBG 3/hOrgBG]);
+    'Position',[1/wOrgBG 17/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 patientBirthDateEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
-    'Tag','patientBirthDateEdit','Enable','off',...
-    'Position',[9/wOrgBG 19/hOrgBG 8/wOrgBG 3/hOrgBG]);
+    'Tag','patientBirthDateEdit','Enable','off','FontSize',9,...
+    'Position',[9/wOrgBG 17/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 studyIDLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
     'String','Study ID',...
-    'Position',[1/wOrgBG 15/hOrgBG 7/wOrgBG 3/hOrgBG]);
+    'Position',[1/wOrgBG 13/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 studyIDEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
-    'Tag','studyIDEdit','Enable','off',...
-    'Position',[9/wOrgBG 15/hOrgBG 8/wOrgBG 3/hOrgBG]);
+    'Tag','studyIDEdit','Enable','off','FontSize',7,...
+    'Position',[9/wOrgBG 13/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 studyDateLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
     'String','Study Date',...
-    'Position',[1/wOrgBG 11/hOrgBG 7/wOrgBG 3/hOrgBG]);
+    'Position',[1/wOrgBG 9/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 studyDateEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
-    'Tag','studyDateEdit','Enable','off',...
-    'Position',[9/wOrgBG 11/hOrgBG 8/wOrgBG 3/hOrgBG]);
+    'Tag','studyDateEdit','Enable','off','FontSize',9,...
+    'Position',[9/wOrgBG 9/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 sliceLocationLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
     'String','Slice Location',...
-    'Position',[1/wOrgBG 7/hOrgBG 7/wOrgBG 3/hOrgBG]);
+    'Position',[1/wOrgBG 5/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 sliceLocationEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
     'Tag','sliceLocationEdit','Enable','off',...
-    'Position',[9/wOrgBG 7/hOrgBG 8/wOrgBG 3/hOrgBG]);
+    'Position',[9/wOrgBG 5/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 instanceNumberLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
-    'String','Instance Number',...
-    'Position',[1/wOrgBG 1/hOrgBG 7/wOrgBG 5/hOrgBG]);
+    'String','Inst. Num',...
+    'Position',[1/wOrgBG 1/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 instanceNumberEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
     'Tag','instanceNumberEdit','Enable','off',...
-    'Position',[9/wOrgBG 1/hOrgBG 8/wOrgBG 5/hOrgBG]);
+    'Position',[9/wOrgBG 1/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 %% Prostate Zones
 wZoneBG = 16;
@@ -807,31 +860,26 @@ stdHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units'
 
 %% Save Marking
 wMarkBG = 16;
-hMarkBG = 22;
+hMarkBG = 21;
 
 markBG = uibuttongroup('Units','Normalized','Title','Marking',...
-    'BackgroundColor','magenta','Position',[83/wMax 1/hMax wMarkBG/wMax hMarkBG/hMax]);
+    'BackgroundColor','magenta','Position',[83/wMax 2/hMax wMarkBG/wMax hMarkBG/hMax]);
 
 saveSliceMarkButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
-    'String','Save for Current Slice',...
-    'Position',[1/wMarkBG 18/hMarkBG 14/wMarkBG 3/hMarkBG],'Callback',@saveSliceMarksButton_Callback);
+    'String','Save for Current Slice','FontSize',9,...
+    'Position',[1/wMarkBG 16/hMarkBG 14/wMarkBG 4/hMarkBG],'Callback',@saveSliceMarksButton_Callback);
 
 loadSliceMarkButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
-    'String','Load for Current Slice',...
-    'Position',[1/wMarkBG 14/hMarkBG 14/wMarkBG 3/hMarkBG],'Callback',@loadSliceMarksButton_Callback);
+    'String','Load for Current Slice','FontSize',9,...
+    'Position',[1/wMarkBG 11/hMarkBG 14/wMarkBG 4/hMarkBG],'Callback',@loadSliceMarksButton_Callback);
 
 saveAllMarkButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
-    'String','Save for All Slices',...
-    'Position',[1/wMarkBG 10/hMarkBG 14/wMarkBG 3/hMarkBG],'Callback',@saveAllMarksButton_Callback);
+    'String','Save for All Slices','FontSize',9,...
+    'Position',[1/wMarkBG 6/hMarkBG 14/wMarkBG 4/hMarkBG],'Callback',@saveAllMarksButton_Callback);
 
 loadAllMarkButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
-    'String','Load for All Slices',...
-    'Position',[1/wMarkBG 6/hMarkBG 14/wMarkBG 3/hMarkBG],'Callback',@loadAllMarksButton_Callback);
-
-thresholdButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
-    'String','Threshold',...
-    'Position',[1/wMarkBG 1/hMarkBG 14/wMarkBG 4/hMarkBG],'Callback',@thresholdButton_Callback);
-
+    'String','Load for All Slices','FontSize',9,...
+    'Position',[1/wMarkBG 1/hMarkBG 14/wMarkBG 4/hMarkBG],'Callback',@loadAllMarksButton_Callback);
 
 
 set(hFig, 'Visible','on');

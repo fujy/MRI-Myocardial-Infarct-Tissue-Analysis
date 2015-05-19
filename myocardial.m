@@ -12,7 +12,6 @@ if ~hasIPT
     end
 end
 
-
 %% Callback: Browse
     function browseButton_Callback(hObject, eventdata, handles)
         folder_name = uigetdir();
@@ -42,7 +41,7 @@ end
     function contrastImagesButton_Callback(hObject, eventdata, handles)
         imcontrast(imageAxes);
         I = getimage(imgca);
-        assignin('base','im', I);  
+        assignin('base','im', I);
     end
 
 %% Callback: Image List Box
@@ -59,7 +58,7 @@ end
         if ~isempty(currentEpicardialmark)
             poly = impoly(imageAxes,[currentEpicardialmark(:,1),currentEpicardialmark(:,2)]);
         else
-%             poly = impoly(imageAxes,Epicardialpolyposition);
+            %             poly = impoly(imageAxes,Epicardialpolyposition);
             poly = impoly(imageAxes);
         end
         Epicardialpolyposition = wait(poly);
@@ -74,6 +73,7 @@ end
         hold on;
         Epicardialplot = plot(imageAxes,xi,yi,Epicardialcolor,'Linewidth', lineWidth);
         
+        showAreaAndVolume();
         assignin('base', 'Epicardial', Epicardialpolyposition);
     end
 
@@ -83,7 +83,7 @@ end
         if ~isempty(currentEndocardialmark)
             poly = impoly(imageAxes,[currentEndocardialmark(:,1),currentEndocardialmark(:,2)]);
         else
-%             poly = impoly(imageAxes,Endocardialpolyposition);
+            %             poly = impoly(imageAxes,Endocardialpolyposition);
             poly = impoly(imageAxes);
         end
         Endocardialpolyposition = wait(poly);
@@ -98,6 +98,7 @@ end
         hold on;
         Endocardialplot = plot(imageAxes,xi,yi,Endocardialcolor,'Linewidth', lineWidth);
         
+        showAreaAndVolume();
         assignin('base', 'Endocardial', Endocardialpolyposition);
     end
 
@@ -107,7 +108,7 @@ end
         if ~isempty(currentRemotemark)
             poly = impoly(imageAxes,[currentRemotemark(:,1),currentRemotemark(:,2)]);
         else
-%             poly = impoly(imageAxes,Remotepolyposition);
+            %             poly = impoly(imageAxes,Remotepolyposition);
             poly = impoly(imageAxes);
         end
         Remotepolyposition = wait(poly);
@@ -121,7 +122,8 @@ end
         
         hold on;
         Remoteplot = plot(imageAxes,xi,yi,Remotecolor,'Linewidth', lineWidth);
-
+        
+        showAreaAndVolume();
         assignin('base', 'Remote', Remotepolyposition);
     end
 
@@ -131,12 +133,12 @@ end
         if ~isempty(currentHyperenhanced)
             poly = impoly(imageAxes,[currentHyperenhanced(:,1),currentHyperenhanced(:,2)]);
         else
-%             poly = impoly(imageAxes,Hyperenhancedpolyposition);
+            %             poly = impoly(imageAxes,Hyperenhancedpolyposition);
             poly = impoly(imageAxes);
         end
         Hyperenhancedpolyposition = wait(poly);
         delete(poly);
-
+        
         Hyperenhancedpolyposition = [Hyperenhancedpolyposition; Hyperenhancedpolyposition(1,:)];
         xi = Hyperenhancedpolyposition(:,1); yi = Hyperenhancedpolyposition(:,2);
         selected_image_index = getSelectedImageIndex();
@@ -146,9 +148,9 @@ end
         hold on;
         Hyperenhancedplot = plot(imageAxes,xi,yi,Hyperenhancedcolor,'Linewidth', lineWidth);
         
-        assignin('base', 'Hyperenhanced', Hyperenhancedpolyposition);
-        
+        showAreaAndVolume();
         displayHistogram([xi,yi],getAxesImage(),'Hyperenhanced');
+        assignin('base', 'Hyperenhanced', Hyperenhancedpolyposition);
     end
 
 %% get a masked Image of region of interst marked by user
@@ -160,14 +162,14 @@ end
     end
 
 %% Calculate Statistics
-    function [maxSI, meanSI, stdSI] = calculateStat(points, I)
+    function [maxSI, meanSI, stdSI, modeSI] = calculateStat(points, I)
         maskedImage = getMaskedImage(points, I);
         maskedVector = maskedImage(:);
         % max should be calculated before removing zero elements
         maxSI = max(maskedVector);
         meanSI = mean(maskedVector);
         stdSI = std(double(maskedVector));
-        
+        modeSI = mode(maskedVector);
         maskedVector = maskedVector(maskedVector>0); %removeing zeros from vector for stats
         assignin('base', 'maskedVector', maskedVector);
         
@@ -175,42 +177,37 @@ end
             maxSI = max(maskedVector);
             meanSI = mean(maskedVector);
             stdSI = std(double(maskedVector));
+            modeSI = mode(maskedVector);
         end
     end
 
     function computerGrayzoneButton_Callback(hObject, eventdata, handles)
-        %             figure, imshow(maskedRing);
-        %             assignin('base', 'I', maskedRing);
-        %             V = maskedRing(:);
-        %             V = V(V>0); %removeing zeros from vector for stats
-        %             assignin('base', 'V', V);
-        %             maxSIRing = max(V);
-        %             assignin('base', 'maxRemote', maxRemote);
         selected_image_index =  getSelectedImageIndex();
         I = getAxesImage();
         [r, c] = size(I);
-        %         figure, imshow(I);
+        %                 figure, imshow(I,[]);
         
         if ~isempty(Epicardial)
             Epicardialslice = Epicardial(Epicardial(:,3) == selected_image_index,:);
             xi = Epicardialslice(:,1); yi = Epicardialslice(:,2);
-            maskedEpicardial =  getMaskedImage([xi,yi], getAxesImage());
+            maskedEpicardial =  getMaskedImage([xi,yi], I);
+            %             figure, imshow(maskedEpicardial,[]);
         end
         
         if ~isempty(Endocardial)
             Endocardialslice = Endocardial(Endocardial(:,3) == selected_image_index,:);
             xi = Endocardialslice(:,1); yi = Endocardialslice(:,2);
-            maskedEndocardial =  getMaskedImage([xi,yi], getAxesImage());
+            maskedEndocardial =  getMaskedImage([xi,yi], I);
         end
-
+        
         if ~isempty(Remote)
             Remoteslice = Remote(Remote(:,3) == selected_image_index,:);
             xi = Remoteslice(:,1); yi = Remoteslice(:,2);
-%             maskedRemote = getMaskedImage([xi,yi],getAxesImage());
-%             maskedRemote = maskedRemote(:);
-%             maskedRemote(maskedRemote>0);
-            [maxRemote,meanRemote,stdRemote] = calculateStat([xi,yi],I);
-            set(findobj('Tag', 'maxRemoteEdit'),'String',maxRemote);
+            %             maskedRemote = maskedRemote(:);
+            %             maskedRemote(maskedRemote>0);
+            %             maskedRemote = getMaskedImage([xi,yi],I);
+            %             figure, imshow(maskedRemote,[]);
+            [maxRemote,meanRemote,stdRemote, modeRemote] = calculateStat([xi,yi],I);          set(findobj('Tag', 'maxRemoteEdit'),'String',maxRemote);
             set(findobj('Tag', 'meanRemoteEdit'),'String',meanRemote);
             set(findobj('Tag', 'stdRemoteEdit'),'String',stdRemote);
         end
@@ -218,20 +215,18 @@ end
         if ~isempty(Hyperenhanced)
             Hyperenhancedslice = Hyperenhanced(Hyperenhanced(:,3) == selected_image_index,:);
             xi = Hyperenhancedslice(:,1); yi = Hyperenhancedslice(:,2);
-%             maskedHyperenhanced = getMaskedImage([xi,yi],getAxesImage());
-            [maxHyperenhanced,meanHyperenhanced,stdHyperenhanced] = calculateStat([xi,yi],I);
+            %             maskedHyperenhanced = getMaskedImage([xi,yi],I);
+            [maxHyperenhanced,meanHyperenhanced,stdHyperenhanced,~] = calculateStat([xi,yi],I);
             set(findobj('Tag', 'maxHyperenhancedEdit'),'String',maxHyperenhanced);
             set(findobj('Tag', 'meanHyperenhancedEdit'),'String',meanHyperenhanced);
             set(findobj('Tag', 'stdHyperenhancedEdit'),'String',stdHyperenhanced);
         end
         
         maskedRing = maskedEpicardial - maskedEndocardial;
-%         figure, imshow(maskedRing);
-
+        
         grayZoneIm(:,:,1) = im2double(I);
         grayZoneIm(:,:,2) = im2double(I);
         grayZoneIm(:,:,3) = im2double(I);
-        
         for ii = 1:r
             for jj=1:c
                 if(maskedRing(ii, jj) > maxHyperenhanced/2.0)
@@ -249,30 +244,30 @@ end
             end
         end
         figure, imshow(grayZoneIm,[]);
-        assignin('base', 'mr', maxRemote);
-        assignin('base', 'mh', maxHyperenhanced);
-        assignin('base', 'hi', maskedHyperenhanced);
-        assignin('base', 'g', grayZoneIm);
     end
 
 %% Callback: Clear Epicardial
     function clearEpicardialButton_Callback(hObject, eventdata, handles)
         clearEpicardial();
+        showAreaAndVolume();
     end
 
 %% Callback: Clear Endocardial
     function clearEndocardialButton_Callback(hObject, eventdata, handles)
-        clearEndocardial(); 
+        clearEndocardial();
+        showAreaAndVolume();
     end
 
 %% Callback: Clear Remote
     function clearRemoteButton_Callback(hObject, eventdata, handles)
-        clearRemote(); 
+        clearRemote();
+        showAreaAndVolume();
     end
 
 %% Callback: Clear Hyperenhanced
     function clearHyperenhancedButton_Callback(hObject, eventdata, handles)
         clearHyperenhanced();
+        showAreaAndVolume();
     end
 
 %% Callback: Save Marks as .mat file for current slice
@@ -281,7 +276,7 @@ end
         [filename,pathname] = uiputfile('*.mat');
         
         if(filename == 0)
-           return 
+            return
         end
         
         filepath = strcat(pathname,filesep,filename);
@@ -461,7 +456,7 @@ end
 %%  Display Histogram of selected mask
     function displayHistogram(points, I,axesLegend)
         cla(histogramAxes,'reset');
-%         reset(histogramAxes);
+        %         reset(histogramAxes);
         axes(histogramAxes);
         maskedImage=getMaskedImage(points,I);
         maskedVector = maskedImage(:);
@@ -478,7 +473,7 @@ end
         % imageAxes must be cleared every time before showing new image
         % Otherwise, large memory leak
         cla(imageAxes);
-%         imshow(imadjust(selected_image), [],'InitialMagnification',100);
+        %         imshow(imadjust(selected_image), [],'InitialMagnification',100);
         axes(imageAxes);
         imshow(selected_image, []);
     end
@@ -520,7 +515,7 @@ end
             hold on;
             Remoteplot = plot(imageAxes,xi,yi,Remotecolor,'Linewidth', lineWidth);
         end
-
+        
         if ~isempty(Hyperenhanced)
             Hyperenhancedslice = Hyperenhanced(Hyperenhanced(:,3) == selected_image_index,:);
             xi = Hyperenhancedslice(:,1); yi = Hyperenhancedslice(:,2);
@@ -529,6 +524,7 @@ end
             displayHistogram([xi,yi],getAxesImage(),'Hyperenhanced');
         end
         
+        showAreaAndVolume();
     end
 
 %% Read All Images
@@ -538,8 +534,66 @@ end
             image_path = image_path{:};
             img = dicomread(image_path);
             imgs(:,:,i) = imadjust(img);
-%             imgs(:,:,i) = img;
+            %             imgs(:,:,i) = img;
             infos(i) = dicominfo(image_path);
+        end
+    end
+
+%% Calculate and Show Area and Volume for each zone
+    function showAreaAndVolume()
+        [~, info, selected_image_index] = getSelectedImage();
+        
+        if selected_image_index == 0
+            return
+        end
+        
+        PixelSpacing = info.PixelSpacing;
+        SliceThickness = info.SliceThickness;
+        
+        set(findobj('Tag', 'areaEndocardialEdit'),'String',0);
+        set(findobj('Tag', 'volumeEndocardialEdit'),'String',0);
+        set(findobj('Tag', 'areaEndocardialEdit'),'String',0);
+        set(findobj('Tag', 'volumeEndocardialEdit'),'String',0);
+        set(findobj('Tag', 'areaRemoteEdit'),'String',0);
+        set(findobj('Tag', 'volumeRemoteEdit'),'String',0);
+        set(findobj('Tag', 'areaHyperenhancedEdit'),'String',0);
+        set(findobj('Tag', 'volumeHyperenhancedEdit'),'String',0);
+        
+        if ~isempty(Epicardial)
+            Endocardialslice = Endocardial(Endocardial(:,3) == selected_image_index,:);
+            xi = Endocardialslice(:,1); yi = Endocardialslice(:,2);
+            areaEndocardial = polyarea(xi,yi) * PixelSpacing(1) * PixelSpacing(2);
+            volumeEndocardial = areaEndocardial * SliceThickness;
+            set(findobj('Tag', 'areaEpicardialEdit'),'String',areaEndocardial);
+            set(findobj('Tag', 'volumeEpicardialEdit'),'String',volumeEndocardial);
+        end
+        
+        if ~isempty(Endocardial)
+            Endocardialslice = Endocardial(Endocardial(:,3) == selected_image_index,:);
+            xi = Endocardialslice(:,1); yi = Endocardialslice(:,2);
+            areaEndocardial = polyarea(xi,yi) * PixelSpacing(1) * PixelSpacing(2);
+            volumeEndocardial = areaEndocardial * SliceThickness;
+            set(findobj('Tag', 'areaEndocardialEdit'),'String',areaEndocardial);
+            set(findobj('Tag', 'volumeEndocardialEdit'),'String',volumeEndocardial);
+        end
+        
+        if ~isempty(Remote)
+            Remoteslice = Remote(Remote(:,3) == selected_image_index,:);
+            xi = Remoteslice(:,1); yi = Remoteslice(:,2);
+            areaRemote = polyarea(xi,yi) * PixelSpacing(1) * PixelSpacing(2);
+            volumeRemote = areaRemote * SliceThickness;
+            set(findobj('Tag', 'areaRemoteEdit'),'String',areaRemote);
+            set(findobj('Tag', 'volumeRemoteEdit'),'String',volumeRemote);
+        end
+        
+        if ~isempty(Hyperenhanced)
+            Hyperenhancedslice = Hyperenhanced(Hyperenhanced(:,3) == selected_image_index,:);
+            xi = Hyperenhancedslice(:,1); yi = Hyperenhancedslice(:,2);
+            areaHyperenhanced = polyarea(xi,yi) * PixelSpacing(1) * PixelSpacing(2);
+            
+            volumeHyperenhanced = areaHyperenhanced * SliceThickness;
+            set(findobj('Tag', 'areaHyperenhancedEdit'),'String',areaHyperenhanced);
+            set(findobj('Tag', 'volumeHyperenhancedEdit'),'String',volumeHyperenhanced);
         end
     end
 
@@ -549,7 +603,8 @@ clear all;
 close all;
 clc;
 
-database_path = '/media/student/58801F1B801EFEE6/University/Medical Image Analysis/Project/Patient_1';
+% database_path = '/media/student/58801F1B801EFEE6/University/Medical Image Analysis/Project/Patient_1';
+database_path = 'D:\University\Medical Image Analysis\Project\Patient_1';
 
 %% Global Matricies
 imgs = [];
@@ -558,8 +613,6 @@ Epicardial = [];
 Endocardial = [];
 Remote = [];
 Hyperenhanced = [];
-
-maskedHyperenhanced=[];
 
 maxRemote=0;
 maxHyperenhanced=0;
@@ -576,7 +629,7 @@ Hyperenhancedpolyposition = [];
 
 inDateFormat = 'yyyymmdd';
 outDateFormat = 'dd/mm/yyyy';
-lineWidth = 3;
+lineWidth = 1;
 Epicardialcolor = 'r';
 Endocardialcolor = 'g';
 Remotecolor = 'b';
@@ -712,19 +765,36 @@ instanceNumberEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','n
 
 %% Prostate Zones
 wZoneBG = 16;
-hZoneBG = 18;
+hZoneBG = 24;
+hZoneBGR = 20;
 
 %% Epicardial
 EpicardialBG = uibuttongroup('Units','Normalized','Title','Epicardial Zone',...
-    'BackgroundColor','red','Position',[83/wMax 81/hMax wZoneBG/wMax hZoneBG/hMax]);
+    'BackgroundColor','red','Position',[83/wMax 80/hMax wZoneBG/wMax hZoneBGR/hMax]);
 
 markEpicardialButton = uicontrol('Style','pushbutton','Parent',EpicardialBG,'Units','normalized',...
     'String','Mark (Edit)',...
-    'Position',[1/wZoneBG 14/hZoneBG 8/wZoneBG 4/hZoneBG],'Callback',@markEpicardialButton_Callback);
+    'Position',[1/wZoneBG 21/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markEpicardialButton_Callback);
 
 clearEpicardialButton = uicontrol('Style','pushbutton','Parent',EpicardialBG,'Units','normalized',...
     'String','Clear',...
-    'Position',[10/wZoneBG 14/hZoneBG 5/wZoneBG 4/hZoneBG],'Callback',@clearEpicardialButton_Callback);
+    'Position',[10/wZoneBG 21/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearEpicardialButton_Callback);
+
+areaEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
+    'String','Area',...
+    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+areaEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
+    'Tag','areaEpicardialEdit','Enable','off',...
+    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+volumeEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
+    'String','Volume',...
+    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+volumeEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
+    'Tag','volumeEpicardialEdit','Enable','off',...
+    'Position',[8/wZoneBG 13/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 maxEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
     'String','Max SI',...
@@ -752,15 +822,31 @@ stdEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','norm
 
 %% Endocardial
 EndocardialBG = uibuttongroup('Units','Normalized','Title','Endocardial Zone',...
-    'BackgroundColor','green','Position',[83/wMax 62/hMax wZoneBG/wMax hZoneBG/hMax]);
+    'BackgroundColor','green','Position',[83/wMax 60/hMax wZoneBG/wMax hZoneBGR/hMax]);
 
 markEndocardialButton = uicontrol('Style','pushbutton','Parent',EndocardialBG,'Units','normalized',...
     'String','Mark (Edit)',...
-    'Position',[1/wZoneBG 14/hZoneBG 8/wZoneBG 4/hZoneBG],'Callback',@markEndocardialButton_Callback);
+    'Position',[1/wZoneBG 21/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markEndocardialButton_Callback);
 
 clearEndocardialButton = uicontrol('Style','pushbutton','Parent',EndocardialBG,'Units','normalized',...
     'String','Clear',...
-    'Position',[10/wZoneBG 14/hZoneBG 5/wZoneBG 4/hZoneBG],'Callback',@clearEndocardialButton_Callback);
+    'Position',[10/wZoneBG 21/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearEndocardialButton_Callback);
+
+areaEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
+    'String','Area',...
+    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+areaEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
+    'Tag','areaEndocardialEdit','Enable','off',...
+    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+volumeEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
+    'String','Volume',...
+    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+volumeEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
+    'Tag','volumeEndocardialEdit','Enable','off',...
+    'Position',[8/wZoneBG 13/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 maxEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
     'String','Max SI',...
@@ -788,15 +874,31 @@ stdEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','no
 
 %% Remote
 RemoteBG = uibuttongroup('Units','Normalized','Title','Remote Zone',...
-    'BackgroundColor','blue','Position',[83/wMax 43/hMax wZoneBG/wMax hZoneBG/hMax]);
+    'BackgroundColor','blue','Position',[83/wMax 39/hMax wZoneBG/wMax 20/hMax]);
 
 markRemoteButton = uicontrol('Style','pushbutton','Parent',RemoteBG,'Units','normalized',...
     'String','Mark (Edit)',...
-    'Position',[1/wZoneBG 14/hZoneBG 8/wZoneBG 4/hZoneBG],'Callback',@markRemoteButton_Callback);
+    'Position',[1/wZoneBG 21/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markRemoteButton_Callback);
 
 clearRemoteButton = uicontrol('Style','pushbutton','Parent',RemoteBG,'Units','normalized',...
     'String','Clear',...
-    'Position',[10/wZoneBG 14/hZoneBG 5/wZoneBG 4/hZoneBG],'Callback',@clearRemoteButton_Callback);
+    'Position',[10/wZoneBG 21/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearRemoteButton_Callback);
+
+areaRemoteLabel = uicontrol('Style','text','Parent',RemoteBG,'Units','normalized',...
+    'String','Area',...
+    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+areaRemoteEdit = uicontrol('Style','edit','Parent',RemoteBG,'Units','normalized',...
+    'Tag','areaRemoteEdit','Enable','off',...
+    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+volumeRemoteLabel = uicontrol('Style','text','Parent',RemoteBG,'Units','normalized',...
+    'String','Volume',...
+    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+volumeRemoteEdit = uicontrol('Style','edit','Parent',RemoteBG,'Units','normalized',...
+    'Tag','volumeRemoteEdit','Enable','off',...
+    'Position',[8/wZoneBG 13/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 maxRemoteLabel = uicontrol('Style','text','Parent',RemoteBG,'Units','normalized',...
     'String','Max SI',...
@@ -824,15 +926,31 @@ stdRemoteEdit = uicontrol('Style','edit','Parent',RemoteBG,'Units','normalized',
 
 %% Hyperenhanced
 HyperenhancedBG = uibuttongroup('Units','Normalized','Title','Hyperenhanced Zone',...
-    'BackgroundColor','cyan','Position',[83/wMax 24/hMax wZoneBG/wMax hZoneBG/hMax]);
+    'BackgroundColor','cyan','Position',[83/wMax 18/hMax wZoneBG/wMax hZoneBGR/hMax]);
 
 markHyperenhancedButton = uicontrol('Style','pushbutton','Parent',HyperenhancedBG,'Units','normalized',...
     'String','Mark (Edit)',...
-    'Position',[1/wZoneBG 14/hZoneBG 8/wZoneBG 4/hZoneBG],'Callback',@markHyperenhancedButton_Callback);
+    'Position',[1/wZoneBG 21/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markHyperenhancedButton_Callback);
 
 clearHyperenhancedButton = uicontrol('Style','pushbutton','Parent',HyperenhancedBG,'Units','normalized',...
     'String','Clear',...
-    'Position',[10/wZoneBG 14/hZoneBG 5/wZoneBG 4/hZoneBG],'Callback',@clearHyperenhancedButton_Callback);
+    'Position',[10/wZoneBG 21/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearHyperenhancedButton_Callback);
+
+areaHyperenhancedLabel = uicontrol('Style','text','Parent',HyperenhancedBG,'Units','normalized',...
+    'String','Area',...
+    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+areaHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units','normalized',...
+    'Tag','areaHyperenhancedEdit','Enable','off',...
+    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+volumeHyperenhancedLabel = uicontrol('Style','text','Parent',HyperenhancedBG,'Units','normalized',...
+    'String','Volume',...
+    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+volumeHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units','normalized',...
+    'Tag','volumeHyperenhancedEdit','Enable','off',...
+    'Position',[8/wZoneBG 13/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 maxHyperenhancedLabel = uicontrol('Style','text','Parent',HyperenhancedBG,'Units','normalized',...
     'String','Max SI',...
@@ -851,7 +969,7 @@ meanHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units
     'Position',[8/wZoneBG 5/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 stdHyperenhancedLabel = uicontrol('Style','text','Parent',HyperenhancedBG,'Units','normalized',...
-    'String','STD SI',...
+    'String','STD SI','FontSize',8,...
     'Position',[1/wZoneBG 1/hZoneBG 6/wZoneBG 3/hZoneBG]);
 
 stdHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units','normalized',...
@@ -860,26 +978,26 @@ stdHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units'
 
 %% Save Marking
 wMarkBG = 16;
-hMarkBG = 21;
+hMarkBG = 16;
 
 markBG = uibuttongroup('Units','Normalized','Title','Marking',...
-    'BackgroundColor','magenta','Position',[83/wMax 2/hMax wMarkBG/wMax hMarkBG/hMax]);
+    'BackgroundColor','magenta','Position',[83/wMax 1/hMax wMarkBG/wMax hMarkBG/hMax]);
 
 saveSliceMarkButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
     'String','Save for Current Slice','FontSize',9,...
-    'Position',[1/wMarkBG 16/hMarkBG 14/wMarkBG 4/hMarkBG],'Callback',@saveSliceMarksButton_Callback);
+    'Position',[1/wMarkBG 13/hMarkBG 14/wMarkBG 3/hMarkBG],'Callback',@saveSliceMarksButton_Callback);
 
 loadSliceMarkButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
     'String','Load for Current Slice','FontSize',9,...
-    'Position',[1/wMarkBG 11/hMarkBG 14/wMarkBG 4/hMarkBG],'Callback',@loadSliceMarksButton_Callback);
+    'Position',[1/wMarkBG 9/hMarkBG 14/wMarkBG 3/hMarkBG],'Callback',@loadSliceMarksButton_Callback);
 
 saveAllMarkButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
     'String','Save for All Slices','FontSize',9,...
-    'Position',[1/wMarkBG 6/hMarkBG 14/wMarkBG 4/hMarkBG],'Callback',@saveAllMarksButton_Callback);
+    'Position',[1/wMarkBG 5/hMarkBG 14/wMarkBG 3/hMarkBG],'Callback',@saveAllMarksButton_Callback);
 
 loadAllMarkButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
     'String','Load for All Slices','FontSize',9,...
-    'Position',[1/wMarkBG 1/hMarkBG 14/wMarkBG 4/hMarkBG],'Callback',@loadAllMarksButton_Callback);
+    'Position',[1/wMarkBG 1/hMarkBG 14/wMarkBG 3/hMarkBG],'Callback',@loadAllMarksButton_Callback);
 
 
 set(hFig, 'Visible','on');

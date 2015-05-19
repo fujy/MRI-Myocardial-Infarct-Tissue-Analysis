@@ -180,7 +180,7 @@ end
             modeSI = mode(maskedVector);
         end
     end
-
+%% Callback: Calculate Infarct Core zone and Gray zone
     function computerGrayzoneButton_Callback(hObject, eventdata, handles)
         selected_image_index =  getSelectedImageIndex();
         I = getAxesImage();
@@ -308,7 +308,7 @@ end
 
 %% Callback: Load Marks from .mat file for current slice
     function loadSliceMarksButton_Callback(hObject, eventdata, handles)
-        [filename,pathname] = uigetfile('*.mat','Select Prostate Zone Marks for Current Slice');
+        [filename,pathname] = uigetfile('*.mat','Select Myocardial Zone Marks for Current Slice');
         if(filename == 0)
             return
         end
@@ -343,7 +343,7 @@ end
 
 %% Callback: Load Marks from .mat file for all slices
     function loadAllMarksButton_Callback(hObject, eventdata, handles)
-        [filename,pathname] = uigetfile('*.mat','Select Prostate Zone Marks for Current Slice');
+        [filename,pathname] = uigetfile('*.mat','Select Myocardial Marks for Current Slice');
         if(filename == 0)
             return
         end
@@ -529,6 +529,10 @@ end
 
 %% Read All Images
     function [imgs, infos] = readAllDICOMImages(images_dir,images_names_list)
+        Epicardial = [];
+        Endocardial = [];
+        Remote = [];
+        Hyperenhanced = [];
         for i = 1:length(images_names_list)
             image_path = strcat(images_dir,filesep,images_names_list(i));
             image_path = image_path{:};
@@ -763,7 +767,7 @@ instanceNumberEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','n
     'Tag','instanceNumberEdit','Enable','off',...
     'Position',[9/wOrgBG 1/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
-%% Prostate Zones
+%% Myocardial Zones
 wZoneBG = 16;
 hZoneBG = 24;
 hZoneBGR = 20;

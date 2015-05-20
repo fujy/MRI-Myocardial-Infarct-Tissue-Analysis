@@ -207,9 +207,10 @@ end
             %             maskedRemote(maskedRemote>0);
             %             maskedRemote = getMaskedImage([xi,yi],I);
             %             figure, imshow(maskedRemote,[]);
-            [maxRemote,meanRemote,stdRemote, modeRemote] = calculateStat([xi,yi],I);          set(findobj('Tag', 'maxRemoteEdit'),'String',maxRemote);
+            [maxRemote,meanRemote,stdRemote, modeRemote] = calculateStat([xi,yi],I);          
+            set(findobj('Tag', 'maxRemoteEdit'),'String',maxRemote);
             set(findobj('Tag', 'meanRemoteEdit'),'String',meanRemote);
-            set(findobj('Tag', 'stdRemoteEdit'),'String',stdRemote);
+            set(findobj('Tag', 'stdRemoteEdit'),'String',modeRemote);
         end
         
         if ~isempty(Hyperenhanced)
@@ -237,6 +238,82 @@ end
                 
                 if(maskedRing(ii, jj) > maxRemote ...
                         && maskedRing(ii, jj) < maxHyperenhanced/2.0)
+                    grayZoneIm(ii, jj, 1) = 1.0;
+                    grayZoneIm(ii, jj, 2) = 0.8;
+                    grayZoneIm(ii, jj, 3) = 0;
+                end
+            end
+        end
+        figure, imshow(grayZoneIm,[]);
+    end
+
+    function computerGrayzoneWithRemoteSTDButton_Callback(hObject, eventdata, handles)
+        remoteSTDFactorMin = str2double(get(findobj('Tag', 'remoteSTDFactorMinEdit'),'String'));
+        remoteSTDFactorMax = str2double(get(findobj('Tag', 'remoteSTDFactorMaxEdit'),'String'));
+        if ~(remoteSTDFactorMin >= 2 && remoteSTDFactorMax >= 3)
+            msgbox('Remote STD Factor must be an integer value greater than 2');
+            return
+        end
+        
+        selected_image_index =  getSelectedImageIndex();
+        I = getAxesImage();
+        [r, c] = size(I);
+        %                 figure, imshow(I,[]);
+        
+        if ~isempty(Epicardial)
+            Epicardialslice = Epicardial(Epicardial(:,3) == selected_image_index,:);
+            xi = Epicardialslice(:,1); yi = Epicardialslice(:,2);
+            maskedEpicardial =  getMaskedImage([xi,yi], I);
+            %             figure, imshow(maskedEpicardial,[]);
+        end
+        
+        if ~isempty(Endocardial)
+            Endocardialslice = Endocardial(Endocardial(:,3) == selected_image_index,:);
+            xi = Endocardialslice(:,1); yi = Endocardialslice(:,2);
+            maskedEndocardial =  getMaskedImage([xi,yi], I);
+        end
+        
+        if ~isempty(Remote)
+            Remoteslice = Remote(Remote(:,3) == selected_image_index,:);
+            xi = Remoteslice(:,1); yi = Remoteslice(:,2);
+            %             maskedRemote = maskedRemote(:);
+            %             maskedRemote(maskedRemote>0);
+            %             maskedRemote = getMaskedImage([xi,yi],I);
+            %             figure, imshow(maskedRemote,[]);
+            [maxRemote,meanRemote,stdRemote, modeRemote] = calculateStat([xi,yi],I);          
+            set(findobj('Tag', 'maxRemoteEdit'),'String',maxRemote);
+            set(findobj('Tag', 'meanRemoteEdit'),'String',meanRemote);
+            set(findobj('Tag', 'stdRemoteEdit'),'String',modeRemote);
+        end
+        
+        if ~isempty(Hyperenhanced)
+            Hyperenhancedslice = Hyperenhanced(Hyperenhanced(:,3) == selected_image_index,:);
+            xi = Hyperenhancedslice(:,1); yi = Hyperenhancedslice(:,2);
+            %             maskedHyperenhanced = getMaskedImage([xi,yi],I);
+            [maxHyperenhanced,meanHyperenhanced,stdHyperenhanced,~] = calculateStat([xi,yi],I);
+            set(findobj('Tag', 'maxHyperenhancedEdit'),'String',maxHyperenhanced);
+            set(findobj('Tag', 'meanHyperenhancedEdit'),'String',meanHyperenhanced);
+            set(findobj('Tag', 'stdHyperenhancedEdit'),'String',stdHyperenhanced);
+        end
+        
+        maskedRing = maskedEpicardial - maskedEndocardial;
+
+        grayZoneLowerValue = meanRemote + remoteSTDFactorMin*stdRemote;
+        grayZoneUpperValue = meanRemote + remoteSTDFactorMax*stdRemote;
+        
+        grayZoneIm(:,:,1) = im2double(I);
+        grayZoneIm(:,:,2) = im2double(I);
+        grayZoneIm(:,:,3) = im2double(I);
+        for ii = 1:r
+            for jj=1:c
+                if(maskedRing(ii, jj) > grayZoneUpperValue)
+                    grayZoneIm(ii, jj, 1) = 1.0;
+                    grayZoneIm(ii, jj, 2) = 0;
+                    grayZoneIm(ii, jj, 3) = 0;
+                end
+                
+                if(maskedRing(ii, jj) > grayZoneLowerValue ...
+                        && maskedRing(ii, jj) < grayZoneUpperValue)
                     grayZoneIm(ii, jj, 1) = 1.0;
                     grayZoneIm(ii, jj, 2) = 0.8;
                     grayZoneIm(ii, jj, 3) = 0;
@@ -461,8 +538,10 @@ end
         maskedImage=getMaskedImage(points,I);
         maskedVector = maskedImage(:);
         maskedVector = maskedVector(maskedVector>0);
+        class(maskedVector)
+        max(maskedVector)
         if ~isempty(maskedVector)
-            imhist(maskedVector);
+            hist(double(maskedVector),255);
             legend(histogramAxes,axesLegend,'Location','northeast');
         end
     end
@@ -551,7 +630,7 @@ end
             return
         end
         
-        PixelSpacing = info.PixelSpacing;
+        PixelSpacing = info.PixelSpacing; 
         SliceThickness = info.SliceThickness;
         
         set(findobj('Tag', 'areaEndocardialEdit'),'String',0);
@@ -672,25 +751,47 @@ loadDicomImagesButton = uicontrol('Style','pushbutton','Parent',dirBG,'Units','n
 
 %% Files Controllers
 wFilesBG = 18;
-hFilesBG = 11;
+hFilesBG = 20;
+hFilesBGR = 18;
 
 filesBG = uibuttongroup('Units','Normalized','Title','Files',...
-    'BackgroundColor',[1 0.5 0],'Position',[1/wMax 88/hMax wFilesBG/wMax hFilesBG/hMax]);
+    'BackgroundColor',[1 0.5 0],'Position',[1/wMax 82/hMax wFilesBG/wMax hFilesBGR/hMax]);
 
 contrastImagesButton = uicontrol('Style','pushbutton','Parent',filesBG,'Units','normalized',...
-    'String','Contrast Images',...
-    'Position',[1/wFilesBG 6/hFilesBG 16/wFilesBG 4/hFilesBG],'Callback',@contrastImagesButton_Callback);
+    'String','Contrast Images','FontSize',9,...
+    'Position',[1/wFilesBG 17/hFilesBG 16/wFilesBG 3/hFilesBG],'Callback',@contrastImagesButton_Callback);
 
 computerGrayzoneButton = uicontrol('Style','pushbutton','Parent',filesBG,'Units','normalized',...
-    'String','Compute Grayzone',...
-    'Position',[1/wFilesBG 1/hFilesBG 16/wFilesBG 4/hFilesBG],'Callback',@computerGrayzoneButton_Callback);
+    'String','Grayzone with Remote Max','FontSize',9,...
+    'Position',[1/wFilesBG 13/hFilesBG 16/wFilesBG 3/hFilesBG],'Callback',@computerGrayzoneButton_Callback);
+
+computerGrayzoneWithRemoteSTDButton = uicontrol('Style','pushbutton','Parent',filesBG,'Units','normalized',...
+    'String','Grayzone with Remote STD','FontSize',9,...
+    'Position',[1/wFilesBG 9/hFilesBG 16/wFilesBG 3/hFilesBG],'Callback',@computerGrayzoneWithRemoteSTDButton_Callback);
+
+remoteSTDFactorMinLabel = uicontrol('Style','text','Parent',filesBG,'Units','normalized',...
+    'String','Remote STD Factor Min','FontSize',8,...
+    'Position',[1/wFilesBG 5/hFilesBG 12.5/wFilesBG 3/hFilesBG]);
+
+remoteSTDFactorMinEdit = uicontrol('Style','edit','Parent',filesBG,'Units','normalized',...
+    'Tag','remoteSTDFactorMinEdit','FontSize',7,...
+    'Position',[14/wFilesBG 5/hFilesBG 3/wFilesBG 3/hFilesBG]);
+
+remoteSTDFactorMaxLabel = uicontrol('Style','text','Parent',filesBG,'Units','normalized',...
+    'String','Remote STD Factor Max','FontSize',8,...
+    'Position',[1/wFilesBG 1/hFilesBG 12.5/wFilesBG 3/hFilesBG]);
+
+remoteSTDFactorMaxEdit = uicontrol('Style','edit','Parent',filesBG,'Units','normalized',...
+    'Tag','remoteSTDFactorMaxEdit','FontSize',7,...
+    'Position',[14/wFilesBG 1/hFilesBG 3/wFilesBG 3/hFilesBG]);
 
 %% Image ListBox
 wListBG = 18;
 hListBG = 20;
+hListBGR = 15;
 
 imagelistBG = uibuttongroup('Units','Normalized','Title','Image List',...
-    'Position',[1/wMax 67/hMax wFilesBG/wMax hListBG/hMax]);
+    'Position',[1/wMax 67/hMax wFilesBG/wMax hListBGR/hMax]);
 
 imageListBox = uicontrol('Style','listbox','Parent',imagelistBG,'Units','normalized',...
     'BackgroundColor','white','Tag','imageListBox',...

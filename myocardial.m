@@ -6,7 +6,7 @@ hasIPT = license('test', 'image_toolbox');
 if ~hasIPT
     message = sprintf('Sorry, but you do not seem to have the Image Processing Toolbox.\nDo you want to try to continue anyway?');
     reply = questdlg(message, 'Toolbox missing', 'Yes', 'No', 'Yes');
-    if strcmpi(reply, 'No')
+    if strcmpi(reply, 'No') 
         % Exit
         return;
     end
@@ -310,7 +310,7 @@ end
         grayZoneIm(:,:,2) = im2double(I);
         grayZoneIm(:,:,3) = im2double(I);
         
-        infarctCorezonePixelCount = 0;
+        infarctCorePixelCount = 0;
         infarctGrayzonePixelCount = 0;
         remotezonePixelCount = 0;
         
@@ -324,7 +324,7 @@ end
                     grayZoneIm(ii, jj, 1) = 1.0;
                     grayZoneIm(ii, jj, 2) = 0;
                     grayZoneIm(ii, jj, 3) = 0;
-                    infarctCorezonePixelCount = infarctCorezonePixelCount + 1;
+                    infarctCorePixelCount = infarctCorePixelCount + 1;
                 elseif(maskedRing(ii, jj) > grayZoneLowerValue ...
                         && maskedRing(ii, jj) < grayZoneUpperValue)
                      % Infarct Grayzone
@@ -759,10 +759,10 @@ Hyperenhancedpolyposition = [];
 inDateFormat = 'yyyymmdd';
 outDateFormat = 'dd/mm/yyyy';
 lineWidth = 1;
-Epicardialcolor = 'r';
+Epicardialcolor = 'c';
 Endocardialcolor = 'g';
 Remotecolor = 'b';
-Hyperenhancedcolor = 'c';
+Hyperenhancedcolor = 'r';
 slicessize = 0;
 
 %% Figure
@@ -851,7 +851,7 @@ orgParameterBG = uibuttongroup('Units','Normalized','Title','Information',...
     'Position',[1/wMax 34/hMax wOrgBG/wMax hOrgBG/hMax]);
 
 familyNameLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
-    'String','Family Name','FontSize',9,...
+    'String','Family Name','FontSize',8,...
     'Position',[1/wOrgBG 29/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 familyNameEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
@@ -859,7 +859,7 @@ familyNameEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','norma
     'Position',[9/wOrgBG 29/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 givenNameLabel = uicontrol('Style','text','Parent',orgParameterBG,'Units','normalized',...
-    'String','Given Name','FontSize',9,...
+    'String','Given Name','FontSize',8,...
     'Position',[1/wOrgBG 25/hOrgBG 7/wOrgBG 3/hOrgBG]);
 
 givenNameEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','normalized',...
@@ -920,7 +920,7 @@ wZoneBG = 16;
 hZoneBG = 12;
 
 EpicardialBG = uibuttongroup('Units','Normalized','Title','Epicardial Zone',...
-    'BackgroundColor','red','Position',[83/wMax 88/hMax wZoneBG/wMax hZoneBG/hMax]);
+    'BackgroundColor',Epicardialcolor,'Position',[83/wMax 88/hMax wZoneBG/wMax hZoneBG/hMax]);
 
 markEpicardialButton = uicontrol('Style','pushbutton','Parent',EpicardialBG,'Units','normalized',...
     'String','Mark (Edit)',...
@@ -972,7 +972,7 @@ volumeEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','n
 
 %% Endocardial
 EndocardialBG = uibuttongroup('Units','Normalized','Title','Endocardial Zone',...
-    'BackgroundColor','green','Position',[83/wMax 76/hMax wZoneBG/wMax hZoneBG/hMax]);
+    'BackgroundColor',Endocardialcolor,'Position',[83/wMax 76/hMax wZoneBG/wMax hZoneBG/hMax]);
 
 markEndocardialButton = uicontrol('Style','pushbutton','Parent',EndocardialBG,'Units','normalized',...
     'String','Mark (Edit)',...
@@ -1027,7 +1027,7 @@ wZoneBG = 16;
 hZoneBG = 33;
 
 RemoteBG = uibuttongroup('Units','Normalized','Title','Remote Zone',...
-    'BackgroundColor','blue','Position',[83/wMax 51/hMax wZoneBG/wMax 25/hMax]);
+    'BackgroundColor',Remotecolor,'Position',[83/wMax 51/hMax wZoneBG/wMax 25/hMax]);
 
 markRemoteButton = uicontrol('Style','pushbutton','Parent',RemoteBG,'Units','normalized',...
     'String','Mark (Edit)',...
@@ -1095,7 +1095,7 @@ stdRemoteEdit = uicontrol('Style','edit','Parent',RemoteBG,'Units','normalized',
 
 %% Hyperenhanced
 HyperenhancedBG = uibuttongroup('Units','Normalized','Title','Hyperenhanced Zone',...
-    'BackgroundColor','cyan','Position',[83/wMax 24/hMax wZoneBG/wMax 27/hMax]);
+    'BackgroundColor',Hyperenhancedcolor,'Position',[83/wMax 24/hMax wZoneBG/wMax 27/hMax]);
 
 markHyperenhancedButton = uicontrol('Style','pushbutton','Parent',HyperenhancedBG,'Units','normalized',...
     'String','Mark (Edit)',...
@@ -1166,7 +1166,7 @@ wZoneBG = 16;
 hZoneBG = 8;
 
 GrayzoneBG = uibuttongroup('Units','Normalized','Title','Grayzone',...
-    'BackgroundColor','red','Position',[83/wMax 16/hMax wZoneBG/wMax hZoneBG/hMax]);
+    'BackgroundColor',[1, 1, 0],'Position',[83/wMax 16/hMax wZoneBG/wMax hZoneBG/hMax]);
 
 areaGrayzoneLabel = uicontrol('Style','text','Parent',GrayzoneBG,'Units','normalized',...
     'String','Total Area',...

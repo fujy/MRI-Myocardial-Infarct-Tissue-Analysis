@@ -180,7 +180,7 @@ end
             modeSI = mode(maskedVector);
         end
     end
-%% Callback: Calculate Infarct Core zone and Gray zone
+%% Callback: Calculate Infarct Core zone and Gray zone using Remote Max
     function computerGrayzoneButton_Callback(hObject, eventdata, handles)
         selected_image_index =  getSelectedImageIndex();
         I = getAxesImage();
@@ -225,6 +225,10 @@ end
         
         maskedRing = maskedEpicardial - maskedEndocardial;
         
+        infarctCorePixelCount = 0;
+        infarctGrayzonePixelCount = 0;
+        remotezonePixelCount = 0;
+        
         grayZoneIm(:,:,1) = im2double(I);
         grayZoneIm(:,:,2) = im2double(I);
         grayZoneIm(:,:,3) = im2double(I);
@@ -234,19 +238,23 @@ end
                     grayZoneIm(ii, jj, 1) = 1.0;
                     grayZoneIm(ii, jj, 2) = 0;
                     grayZoneIm(ii, jj, 3) = 0;
-                end
-                
-                if(maskedRing(ii, jj) > maxRemote ...
+                    infarctCorePixelCount = infarctCorePixelCount + 1;                
+                elseif(maskedRing(ii, jj) > maxRemote ...
                         && maskedRing(ii, jj) < maxHyperenhanced/2.0)
                     grayZoneIm(ii, jj, 1) = 1.0;
                     grayZoneIm(ii, jj, 2) = 0.8;
                     grayZoneIm(ii, jj, 3) = 0;
+                    infarctGrayzonePixelCount = infarctGrayzonePixelCount + 1;
+                else
+                    remotezonePixelCount = remotezonePixelCount + 1;
                 end
             end
         end
         figure, imshow(grayZoneIm,[]);
+        showTotalAreaAndTotalVolume(infarctCorePixelCount, infarctGrayzonePixelCount, remotezonePixelCount);
     end
 
+%% Callback: Calculate Infarct Core zone and Gray zone using Remote STD
     function computerGrayzoneWithRemoteSTDButton_Callback(hObject, eventdata, handles)
         remoteSTDFactorMin = str2double(get(findobj('Tag', 'remoteSTDFactorMinEdit'),'String'));
         remoteSTDFactorMax = str2double(get(findobj('Tag', 'remoteSTDFactorMaxEdit'),'String'));
@@ -297,30 +305,40 @@ end
         end
         
         maskedRing = maskedEpicardial - maskedEndocardial;
-
-        grayZoneLowerValue = meanRemote + remoteSTDFactorMin*stdRemote;
-        grayZoneUpperValue = meanRemote + remoteSTDFactorMax*stdRemote;
         
         grayZoneIm(:,:,1) = im2double(I);
         grayZoneIm(:,:,2) = im2double(I);
         grayZoneIm(:,:,3) = im2double(I);
+        
+        infarctCorezonePixelCount = 0;
+        infarctGrayzonePixelCount = 0;
+        remotezonePixelCount = 0;
+        
+        grayZoneLowerValue = meanRemote + remoteSTDFactorMin*stdRemote;
+        grayZoneUpperValue = meanRemote + remoteSTDFactorMax*stdRemote;
+        
         for ii = 1:r
             for jj=1:c
                 if(maskedRing(ii, jj) > grayZoneUpperValue)
+                    % Infarct Core
                     grayZoneIm(ii, jj, 1) = 1.0;
                     grayZoneIm(ii, jj, 2) = 0;
                     grayZoneIm(ii, jj, 3) = 0;
-                end
-                
-                if(maskedRing(ii, jj) > grayZoneLowerValue ...
+                    infarctCorezonePixelCount = infarctCorezonePixelCount + 1;
+                elseif(maskedRing(ii, jj) > grayZoneLowerValue ...
                         && maskedRing(ii, jj) < grayZoneUpperValue)
+                     % Infarct Grayzone
                     grayZoneIm(ii, jj, 1) = 1.0;
                     grayZoneIm(ii, jj, 2) = 0.8;
                     grayZoneIm(ii, jj, 3) = 0;
+                    infarctGrayzonePixelCount = infarctGrayzonePixelCount + 1;
+                else
+                    remotezonePixelCount = remotezonePixelCount + 1;
                 end
             end
         end
         figure, imshow(grayZoneIm,[]);
+        showTotalAreaAndTotalVolume(infarctCorePixelCount, infarctGrayzonePixelCount, remotezonePixelCount);
     end
 
 %% Callback: Clear Epicardial
@@ -622,7 +640,35 @@ end
         end
     end
 
-%% Calculate and Show Area and Volume for each zone
+%% Calculate and Show Area and Volume for automatic segmented zones
+    function showTotalAreaAndTotalVolume(infarctCorePixelCount, infarctGrayzonePixelCount, remotezonePixelCount)
+        [~, info, selected_image_index] = getSelectedImage();
+        
+        if selected_image_index == 0
+            return
+        end
+        
+        PixelSpacing = info.PixelSpacing; 
+        SliceThickness = info.SliceThickness;
+        
+        infarctCorezoneTotalArea = infarctCorePixelCount * PixelSpacing(1) * PixelSpacing(2);
+        infarctCorezoneTotalVolume = infarctCorezoneTotalArea * SliceThickness;
+        set(findobj('Tag', 'areaTotalHyperenhancedEdit'),'String',infarctCorezoneTotalArea);
+        set(findobj('Tag', 'volumeTotalHyperenhancedEdit'),'String',infarctCorezoneTotalVolume);
+        
+        infarctGrayzoneTotalArea = infarctGrayzonePixelCount * PixelSpacing(1) * PixelSpacing(2);
+        infarctGrayzoneTotalVolume = infarctGrayzoneTotalArea * SliceThickness;
+        set(findobj('Tag', 'areaGrayzoneEdit'),'String',infarctGrayzoneTotalArea);
+        set(findobj('Tag', 'volumeGrayzoneEdit'),'String',infarctGrayzoneTotalVolume);
+        
+        remotezoneTotalArea = remotezonePixelCount * PixelSpacing(1) * PixelSpacing(2);
+        remotezoneTotalVolume = remotezoneTotalArea * SliceThickness;
+        set(findobj('Tag', 'areaTotalRemoteEdit'),'String',remotezoneTotalArea);
+        set(findobj('Tag', 'volumeTotalRemoteEdit'),'String',remotezoneTotalVolume);
+        
+    end
+
+%% Calculate and Show Area and Volume for manually selected zones
     function showAreaAndVolume()
         [~, info, selected_image_index] = getSelectedImage();
         
@@ -869,140 +915,158 @@ instanceNumberEdit = uicontrol('Style','edit','Parent',orgParameterBG,'Units','n
     'Position',[9/wOrgBG 1/hOrgBG 8/wOrgBG 3/hOrgBG]);
 
 %% Myocardial Zones
-wZoneBG = 16;
-hZoneBG = 24;
-hZoneBGR = 20;
-
 %% Epicardial
+wZoneBG = 16;
+hZoneBG = 12;
+
 EpicardialBG = uibuttongroup('Units','Normalized','Title','Epicardial Zone',...
-    'BackgroundColor','red','Position',[83/wMax 80/hMax wZoneBG/wMax hZoneBGR/hMax]);
+    'BackgroundColor','red','Position',[83/wMax 88/hMax wZoneBG/wMax hZoneBG/hMax]);
 
 markEpicardialButton = uicontrol('Style','pushbutton','Parent',EpicardialBG,'Units','normalized',...
     'String','Mark (Edit)',...
-    'Position',[1/wZoneBG 21/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markEpicardialButton_Callback);
+    'Position',[1/wZoneBG 9/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markEpicardialButton_Callback);
 
 clearEpicardialButton = uicontrol('Style','pushbutton','Parent',EpicardialBG,'Units','normalized',...
     'String','Clear',...
-    'Position',[10/wZoneBG 21/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearEpicardialButton_Callback);
+    'Position',[10/wZoneBG 9/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearEpicardialButton_Callback);
 
 areaEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
     'String','Area',...
-    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+    'Position',[1/wZoneBG 5/hZoneBG 6/wZoneBG 3/hZoneBG]);
 
 areaEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
     'Tag','areaEpicardialEdit','Enable','off',...
-    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+    'Position',[8/wZoneBG 5/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 volumeEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
     'String','Volume',...
-    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+    'Position',[1/wZoneBG 1/hZoneBG 6/wZoneBG 3/hZoneBG]);
 
 volumeEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
     'Tag','volumeEpicardialEdit','Enable','off',...
-    'Position',[8/wZoneBG 13/hZoneBG 7/wZoneBG 3/hZoneBG]);
-
-maxEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
-    'String','Max SI',...
-    'Position',[1/wZoneBG 9/hZoneBG 6/wZoneBG 3/hZoneBG]);
-
-maxEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
-    'Tag','maxEpicardialEdit','Enable','off',...
-    'Position',[8/wZoneBG 9/hZoneBG 7/wZoneBG 3/hZoneBG]);
-
-meanEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
-    'String','Mean SI',...
-    'Position',[1/wZoneBG 5/hZoneBG 6/wZoneBG 3/hZoneBG]);
-
-meanEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
-    'Tag','meanEpicardialEdit','Enable','off',...
-    'Position',[8/wZoneBG 5/hZoneBG 7/wZoneBG 3/hZoneBG]);
-
-stdEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
-    'String','STD SI',...
-    'Position',[1/wZoneBG 1/hZoneBG 6/wZoneBG 3/hZoneBG]);
-
-stdEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
-    'Tag','stdEpicardialEdit','Enable','off',...
     'Position',[8/wZoneBG 1/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+% maxEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
+%     'String','Max SI',...
+%     'Position',[1/wZoneBG 9/hZoneBG 6/wZoneBG 3/hZoneBG]);
+% 
+% maxEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
+%     'Tag','maxEpicardialEdit','Enable','off',...
+%     'Position',[8/wZoneBG 9/hZoneBG 7/wZoneBG 3/hZoneBG]);
+% 
+% meanEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
+%     'String','Mean SI',...
+%     'Position',[1/wZoneBG 5/hZoneBG 6/wZoneBG 3/hZoneBG]);
+% 
+% meanEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
+%     'Tag','meanEpicardialEdit','Enable','off',...
+%     'Position',[8/wZoneBG 5/hZoneBG 7/wZoneBG 3/hZoneBG]);
+% 
+% stdEpicardialLabel = uicontrol('Style','text','Parent',EpicardialBG,'Units','normalized',...
+%     'String','STD SI',...
+%     'Position',[1/wZoneBG 1/hZoneBG 6/wZoneBG 3/hZoneBG]);
+% 
+% stdEpicardialEdit = uicontrol('Style','edit','Parent',EpicardialBG,'Units','normalized',...
+%     'Tag','stdEpicardialEdit','Enable','off',...
+%     'Position',[8/wZoneBG 1/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 %% Endocardial
 EndocardialBG = uibuttongroup('Units','Normalized','Title','Endocardial Zone',...
-    'BackgroundColor','green','Position',[83/wMax 60/hMax wZoneBG/wMax hZoneBGR/hMax]);
+    'BackgroundColor','green','Position',[83/wMax 76/hMax wZoneBG/wMax hZoneBG/hMax]);
 
 markEndocardialButton = uicontrol('Style','pushbutton','Parent',EndocardialBG,'Units','normalized',...
     'String','Mark (Edit)',...
-    'Position',[1/wZoneBG 21/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markEndocardialButton_Callback);
+    'Position',[1/wZoneBG 9/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markEndocardialButton_Callback);
 
 clearEndocardialButton = uicontrol('Style','pushbutton','Parent',EndocardialBG,'Units','normalized',...
     'String','Clear',...
-    'Position',[10/wZoneBG 21/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearEndocardialButton_Callback);
+    'Position',[10/wZoneBG 9/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearEndocardialButton_Callback);
 
 areaEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
     'String','Area',...
-    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+    'Position',[1/wZoneBG 5/hZoneBG 6/wZoneBG 3/hZoneBG]);
 
 areaEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
     'Tag','areaEndocardialEdit','Enable','off',...
-    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+    'Position',[8/wZoneBG 5/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 volumeEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
     'String','Volume',...
-    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+    'Position',[1/wZoneBG 1/hZoneBG 6/wZoneBG 3/hZoneBG]);
 
 volumeEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
     'Tag','volumeEndocardialEdit','Enable','off',...
-    'Position',[8/wZoneBG 13/hZoneBG 7/wZoneBG 3/hZoneBG]);
-
-maxEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
-    'String','Max SI',...
-    'Position',[1/wZoneBG 9/hZoneBG 6/wZoneBG 3/hZoneBG]);
-
-maxEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
-    'Tag','maxEndocardialEdit','Enable','off',...
-    'Position',[8/wZoneBG 9/hZoneBG 7/wZoneBG 3/hZoneBG]);
-
-meanEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
-    'String','Mean SI',...
-    'Position',[1/wZoneBG 5/hZoneBG 6/wZoneBG 3/hZoneBG]);
-
-meanEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
-    'Tag','meanEndocardialEdit','Enable','off',...
-    'Position',[8/wZoneBG 5/hZoneBG 7/wZoneBG 3/hZoneBG]);
-
-stdEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
-    'String','STD SI',...
-    'Position',[1/wZoneBG 1/hZoneBG 6/wZoneBG 3/hZoneBG]);
-
-stdEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
-    'Tag','stdEndocardialEdit','Enable','off',...
     'Position',[8/wZoneBG 1/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
+% maxEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
+%     'String','Max SI',...
+%     'Position',[1/wZoneBG 9/hZoneBG 6/wZoneBG 3/hZoneBG]);
+% 
+% maxEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
+%     'Tag','maxEndocardialEdit','Enable','off',...
+%     'Position',[8/wZoneBG 9/hZoneBG 7/wZoneBG 3/hZoneBG]);
+% 
+% meanEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
+%     'String','Mean SI',...
+%     'Position',[1/wZoneBG 5/hZoneBG 6/wZoneBG 3/hZoneBG]);
+% 
+% meanEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
+%     'Tag','meanEndocardialEdit','Enable','off',...
+%     'Position',[8/wZoneBG 5/hZoneBG 7/wZoneBG 3/hZoneBG]);
+% 
+% stdEndocardialLabel = uicontrol('Style','text','Parent',EndocardialBG,'Units','normalized',...
+%     'String','STD SI',...
+%     'Position',[1/wZoneBG 1/hZoneBG 6/wZoneBG 3/hZoneBG]);
+% 
+% stdEndocardialEdit = uicontrol('Style','edit','Parent',EndocardialBG,'Units','normalized',...
+%     'Tag','stdEndocardialEdit','Enable','off',...
+%     'Position',[8/wZoneBG 1/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
 %% Remote
+wZoneBG = 16;
+hZoneBG = 33;
+
 RemoteBG = uibuttongroup('Units','Normalized','Title','Remote Zone',...
-    'BackgroundColor','blue','Position',[83/wMax 39/hMax wZoneBG/wMax 20/hMax]);
+    'BackgroundColor','blue','Position',[83/wMax 51/hMax wZoneBG/wMax 25/hMax]);
 
 markRemoteButton = uicontrol('Style','pushbutton','Parent',RemoteBG,'Units','normalized',...
     'String','Mark (Edit)',...
-    'Position',[1/wZoneBG 21/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markRemoteButton_Callback);
+    'Position',[1/wZoneBG 29/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markRemoteButton_Callback);
 
 clearRemoteButton = uicontrol('Style','pushbutton','Parent',RemoteBG,'Units','normalized',...
     'String','Clear',...
-    'Position',[10/wZoneBG 21/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearRemoteButton_Callback);
+    'Position',[10/wZoneBG 29/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearRemoteButton_Callback);
 
 areaRemoteLabel = uicontrol('Style','text','Parent',RemoteBG,'Units','normalized',...
     'String','Area',...
-    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+    'Position',[1/wZoneBG 25/hZoneBG 6/wZoneBG 3/hZoneBG]);
 
 areaRemoteEdit = uicontrol('Style','edit','Parent',RemoteBG,'Units','normalized',...
     'Tag','areaRemoteEdit','Enable','off',...
-    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+    'Position',[8/wZoneBG 25/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 volumeRemoteLabel = uicontrol('Style','text','Parent',RemoteBG,'Units','normalized',...
     'String','Volume',...
-    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+    'Position',[1/wZoneBG 21/hZoneBG 6/wZoneBG 3/hZoneBG]);
 
 volumeRemoteEdit = uicontrol('Style','edit','Parent',RemoteBG,'Units','normalized',...
     'Tag','volumeRemoteEdit','Enable','off',...
+    'Position',[8/wZoneBG 21/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+areaTotalRemoteLabel = uicontrol('Style','text','Parent',RemoteBG,'Units','normalized',...
+    'String','Total Area',...
+    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+areaTotalRemoteEdit = uicontrol('Style','edit','Parent',RemoteBG,'Units','normalized',...
+    'Tag','areaTotalRemoteEdit','Enable','off',...
+    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+volumeTotalRemoteLabel = uicontrol('Style','text','Parent',RemoteBG,'Units','normalized',...
+    'String','Total Volume','FontSize',7,...
+    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+volumeTotalRemoteEdit = uicontrol('Style','edit','Parent',RemoteBG,'Units','normalized',...
+    'Tag','volumeTotalRemoteEdit','Enable','off',...
     'Position',[8/wZoneBG 13/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 maxRemoteLabel = uicontrol('Style','text','Parent',RemoteBG,'Units','normalized',...
@@ -1031,30 +1095,46 @@ stdRemoteEdit = uicontrol('Style','edit','Parent',RemoteBG,'Units','normalized',
 
 %% Hyperenhanced
 HyperenhancedBG = uibuttongroup('Units','Normalized','Title','Hyperenhanced Zone',...
-    'BackgroundColor','cyan','Position',[83/wMax 18/hMax wZoneBG/wMax hZoneBGR/hMax]);
+    'BackgroundColor','cyan','Position',[83/wMax 24/hMax wZoneBG/wMax 27/hMax]);
 
 markHyperenhancedButton = uicontrol('Style','pushbutton','Parent',HyperenhancedBG,'Units','normalized',...
     'String','Mark (Edit)',...
-    'Position',[1/wZoneBG 21/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markHyperenhancedButton_Callback);
+    'Position',[1/wZoneBG 29/hZoneBG 8/wZoneBG 3/hZoneBG],'Callback',@markHyperenhancedButton_Callback);
 
 clearHyperenhancedButton = uicontrol('Style','pushbutton','Parent',HyperenhancedBG,'Units','normalized',...
     'String','Clear',...
-    'Position',[10/wZoneBG 21/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearHyperenhancedButton_Callback);
+    'Position',[10/wZoneBG 29/hZoneBG 5/wZoneBG 3/hZoneBG],'Callback',@clearHyperenhancedButton_Callback);
 
 areaHyperenhancedLabel = uicontrol('Style','text','Parent',HyperenhancedBG,'Units','normalized',...
     'String','Area',...
-    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+    'Position',[1/wZoneBG 25/hZoneBG 6/wZoneBG 3/hZoneBG]);
 
 areaHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units','normalized',...
     'Tag','areaHyperenhancedEdit','Enable','off',...
-    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+    'Position',[8/wZoneBG 25/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 volumeHyperenhancedLabel = uicontrol('Style','text','Parent',HyperenhancedBG,'Units','normalized',...
     'String','Volume',...
-    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+    'Position',[1/wZoneBG 21/hZoneBG 6/wZoneBG 3/hZoneBG]);
 
 volumeHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units','normalized',...
     'Tag','volumeHyperenhancedEdit','Enable','off',...
+    'Position',[8/wZoneBG 21/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+areaTotalHyperenhancedLabel = uicontrol('Style','text','Parent',HyperenhancedBG,'Units','normalized',...
+    'String','Total Area',...
+    'Position',[1/wZoneBG 17/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+areaTotalHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units','normalized',...
+    'Tag','areaTotalHyperenhancedEdit','Enable','off',...
+    'Position',[8/wZoneBG 17/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+volumeTotalHyperenhancedLabel = uicontrol('Style','text','Parent',HyperenhancedBG,'Units','normalized',...
+    'String','Total Volume','FontSize',7,...
+    'Position',[1/wZoneBG 13/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+volumeTotalHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units','normalized',...
+    'Tag','volumeTotalHyperenhancedEdit','Enable','off',...
     'Position',[8/wZoneBG 13/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
 maxHyperenhancedLabel = uicontrol('Style','text','Parent',HyperenhancedBG,'Units','normalized',...
@@ -1081,12 +1161,35 @@ stdHyperenhancedEdit = uicontrol('Style','edit','Parent',HyperenhancedBG,'Units'
     'Tag','stdHyperenhancedEdit','Enable','off',...
     'Position',[8/wZoneBG 1/hZoneBG 7/wZoneBG 3/hZoneBG]);
 
+%% Grayzone
+wZoneBG = 16;
+hZoneBG = 8;
+
+GrayzoneBG = uibuttongroup('Units','Normalized','Title','Grayzone',...
+    'BackgroundColor','red','Position',[83/wMax 16/hMax wZoneBG/wMax hZoneBG/hMax]);
+
+areaGrayzoneLabel = uicontrol('Style','text','Parent',GrayzoneBG,'Units','normalized',...
+    'String','Total Area',...
+    'Position',[1/wZoneBG 5/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+areaGrayzoneEdit = uicontrol('Style','edit','Parent',GrayzoneBG,'Units','normalized',...
+    'Tag','areaGrayzoneEdit','Enable','off',...
+    'Position',[8/wZoneBG 5/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
+volumeGrayzoneLabel = uicontrol('Style','text','Parent',GrayzoneBG,'Units','normalized',...
+    'String','Total Volume','FontSize',7,...
+    'Position',[1/wZoneBG 1/hZoneBG 6/wZoneBG 3/hZoneBG]);
+
+volumeGrayzoneEdit = uicontrol('Style','edit','Parent',GrayzoneBG,'Units','normalized',...
+    'Tag','volumeGrayzoneEdit','Enable','off',...
+    'Position',[8/wZoneBG 1/hZoneBG 7/wZoneBG 3/hZoneBG]);
+
 %% Save Marking
 wMarkBG = 16;
 hMarkBG = 16;
 
 markBG = uibuttongroup('Units','Normalized','Title','Marking',...
-    'BackgroundColor','magenta','Position',[83/wMax 1/hMax wMarkBG/wMax hMarkBG/hMax]);
+    'BackgroundColor','magenta','Position',[83/wMax 0/hMax wMarkBG/wMax hMarkBG/hMax]);
 
 saveSliceMarkButton = uicontrol('Style','pushbutton','Parent',markBG,'Units','normalized',...
     'String','Save for Current Slice','FontSize',9,...
